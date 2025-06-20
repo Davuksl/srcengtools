@@ -1,0 +1,245 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Color Text Formatter с курсором</title>
+<style>
+  body { font-family: monospace; background: #222; color: #eee; padding: 20px; }
+  #inputText { width: 100%; height: 80px; font-family: monospace; font-size: 16px; white-space: pre-wrap; }
+  .buttons { margin: 10px 0; }
+  button { margin: 2px; padding: 6px 10px; font-weight: bold; cursor: pointer; }
+  .preview { margin-top: 20px; white-space: pre-wrap; background: #111; padding: 10px; border-radius: 5px; min-height: 60px; }
+  .cursor-container {
+    position: relative;
+    width: 100%;
+    background: #333;
+    color: #eee;
+    font-family: monospace;
+    font-size: 16px;
+    white-space: pre-wrap;
+    padding: 6px;
+    border-radius: 4px;
+    user-select: none;
+  }
+  .cursor {
+    position: absolute;
+    width: 2px;
+    background: #0af;
+    top: 2px;
+    bottom: 2px;
+    animation: blink 1s step-start 0s infinite;
+  }
+  @keyframes blink {
+    50% { opacity: 0; }
+  }
+</style>
+</head>
+<body>
+
+<h2>Color Text Formatter с курсором</h2>
+
+<textarea id="inputText" spellcheck="false" placeholder='Например: [Admin]: Toilet'></textarea>
+
+<div class="buttons" style="margin-top:5px;">
+  <button id="moveLeft">← Влево</button>
+  <button id="moveRight">→ Вправо</button>
+</div>
+
+<div class="buttons" id="colorButtons"></div>
+
+<button id="resetColor">Reset Color (FFFFFF)</button>
+
+<div class="preview" id="preview"></div>
+
+<div style="margin-top:10px; font-size: 14px; color: #aaa;">
+  Курсор указывает место, где будет вставлен цветовой код перед словом
+</div>
+
+<script>
+(() => {
+  const inputText = document.getElementById('inputText');
+  const preview = document.getElementById('preview');
+  const resetColorBtn = document.getElementById('resetColor');
+  const colorButtonsContainer = document.getElementById('colorButtons');
+  const moveLeftBtn = document.getElementById('moveLeft');
+  const moveRightBtn = document.getElementById('moveRight');
+
+  // Цвета для кнопок (пример)
+  const colors = [
+    {name:'Красный', hex:'FF0000'},
+    {name:'Зелёный', hex:'00FF00'},
+    {name:'Синий', hex:'0000FF'},
+    {name:'Жёлтый', hex:'FFFF00'},
+    {name:'Бирюзовый', hex:'00FFFF'},
+    {name:'Фиолетовый', hex:'FF00FF'},
+    {name:'Оранжевый', hex:'FF7F00'},
+    {name:'Розовый', hex:'FF7F7F'},
+    {name:'Серый', hex:'CCCCCC'}
+  ];
+
+  let cursorPos = 0; // позиция курсора в строке
+
+  // Создаём кнопки цветов
+  colors.forEach(c => {
+    const btn = document.createElement('button');
+    btn.textContent = c.name;
+    btn.style.color = '#' + c.hex;
+    btn.title = `Цвет #${c.hex}`;
+    btn.addEventListener('click', () => applyColor(c.hex));
+    colorButtonsContainer.appendChild(btn);
+
+    // Добавим цветной блок рядом
+    const block = document.createElement('span');
+    block.className = 'color-block';
+    block.style.backgroundColor = '#' + c.hex;
+    btn.appendChild(block);
+  });
+
+  // Вспомогательная функция для нахождения границ слова начиная с позиции
+  function getWordBounds(text, pos) {
+    if (pos > text.length) pos = text.length;
+    if (pos < 0) pos = 0;
+
+    // Ищем начало слова
+    let start = pos;
+    while (start > 0 && !/\s/.test(text[start-1])) {
+      start--;
+    }
+    // Ищем конец слова
+    let end = pos;
+    while (end < text.length && !/\s/.test(text[end])) {
+      end++;
+    }
+    return {start, end};
+  }
+
+  // Применение цвета — вставляем код цвета перед словом начиная с курсора
+  function applyColor(hex) {
+    let text = inputText.value;
+
+    // Находим границы слова где стоит курсор
+    const {start, end} = getWordBounds(text, cursorPos);
+
+    if (start === end) {
+      alert('На позиции курсора нет слова для окраски');
+      return;
+    }
+
+    // Удаляем уже существующий цвет внутри слова
+    const word = text.slice(start, end).replace(/\x07color!\x07[0-9A-Fa-f]{6}/g, '');
+
+    // Формируем цветовой код
+    const coloredWord = `\x07color!\x07${hex}${word}`;
+
+    // Вставляем в текст
+    text = text.slice(0, start) + coloredWord + text.slice(end);
+
+    inputText.value = text;
+
+    // Сдвигаем курсор в конец вставленного цветного слова
+    cursorPos = start + coloredWord.length;
+
+    updatePreview();
+  }
+
+  // Reset цвета — вставляем белый цвет перед словом начиная с курсора
+  function resetColor() {
+    applyColor('FFFFFF');
+  }
+
+  // Обновляем превью с раскраской по твоему формату
+  function updatePreview() {
+    const text = inputText.value;
+    const regex = /\x07color!\x07([0-9A-Fa-f]{6})/g;
+
+    let lastIndex = 0;
+    let currentColor = '#FFFFFF';
+    let result = '';
+    let match;
+
+    while ((match = regex.exec(text)) !== null) {
+      const index = match.index;
+      const segment = text.substring(lastIndex, index);
+      if(segment) result += `<span style="color:${currentColor}">${escapeHtml(segment)}</span>`;
+      currentColor = '#' + match[1];
+      lastIndex = regex.lastIndex;
+    }
+    const tail = text.substring(lastIndex);
+    if(tail) result += `<span style="color:${currentColor}">${escapeHtml(tail)}</span>`;
+
+    // Отрисовываем текст с цветами
+    preview.innerHTML = result;
+
+    // Обновляем отображение курсора в textarea
+    updateCursorIndicator();
+  }
+
+  // Экранируем HTML спецсимволы
+  function escapeHtml(text) {
+    return text.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+  }
+
+  // Перемещаем курсор влево
+  function moveCursorLeft() {
+    if(cursorPos > 0) cursorPos--;
+    updateCursorIndicator();
+  }
+
+  // Перемещаем курсор вправо
+  function moveCursorRight() {
+    if(cursorPos < inputText.value.length) cursorPos++;
+    updateCursorIndicator();
+  }
+
+  // Показываем курсор внутри textarea
+  function updateCursorIndicator() {
+    // К сожалению, нативный textarea не позволяет отрисовать курсор произвольно,
+    // поэтому будем показывать позицию курсора в отдельном блоке ниже.
+
+    const text = inputText.value;
+
+    // Для визуализации курсора разбиваем текст на 2 части
+    const before = escapeHtml(text.slice(0, cursorPos));
+    const after = escapeHtml(text.slice(cursorPos));
+
+    preview.dataset.cursor = cursorPos;
+
+    // В preview выводим текст с подчеркиванием места курсора (можно заменить на стрелку)
+    preview.innerHTML = `${before}<span style="background:#0af; color:#222;">|</span>${after}`;
+  }
+
+  // При клике в textarea определяем курсор по позиции клика
+  inputText.addEventListener('click', () => {
+    cursorPos = inputText.selectionStart;
+    updateCursorIndicator();
+  });
+
+  // При вводе текста сдвигаем курсор в позицию ввода
+  inputText.addEventListener('input', () => {
+    cursorPos = inputText.selectionStart;
+    updatePreview();
+  });
+
+  moveLeftBtn.addEventListener('click', () => {
+    moveCursorLeft();
+  });
+
+  moveRightBtn.addEventListener('click', () => {
+    moveCursorRight();
+  });
+
+  resetColorBtn.addEventListener('click', resetColor);
+
+  // Цвета кнопки добавлены выше
+
+  // Инициализируем
+  inputText.value = '[Admin]: Toilet';
+  cursorPos = inputText.value.length;
+  updatePreview();
+
+})();
+</script>
+
+</body>
+</html>
