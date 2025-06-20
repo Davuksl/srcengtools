@@ -1,245 +1,178 @@
 <!DOCTYPE html>
-<html lang="ru">
+<html lang="en">
 <head>
-<meta charset="UTF-8" />
-<meta name="viewport" content="width=device-width, initial-scale=1" />
-<title>Color Text Formatter с курсором</title>
-<style>
-  body { font-family: monospace; background: #222; color: #eee; padding: 20px; }
-  #inputText { width: 100%; height: 80px; font-family: monospace; font-size: 16px; white-space: pre-wrap; }
-  .buttons { margin: 10px 0; }
-  button { margin: 2px; padding: 6px 10px; font-weight: bold; cursor: pointer; }
-  .preview { margin-top: 20px; white-space: pre-wrap; background: #111; padding: 10px; border-radius: 5px; min-height: 60px; }
-  .cursor-container {
-    position: relative;
-    width: 100%;
-    background: #333;
-    color: #eee;
-    font-family: monospace;
-    font-size: 16px;
-    white-space: pre-wrap;
-    padding: 6px;
-    border-radius: 4px;
-    user-select: none;
-  }
-  .cursor {
-    position: absolute;
-    width: 2px;
-    background: #0af;
-    top: 2px;
-    bottom: 2px;
-    animation: blink 1s step-start 0s infinite;
-  }
-  @keyframes blink {
-    50% { opacity: 0; }
-  }
-</style>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Text Color Formatter</title>
+  <script src="https://cdn.jsdelivr.net/npm/react@18.2.0/umd/react.development.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/react-dom@18.2.0/umd/react-dom.development.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/babel-standalone@7.24.7/babel.min.js"></script>
+  <script src="https://cdn.tailwindcss.com"></script>
 </head>
 <body>
+  <div id="root"></div>
+  <script type="text/babel">
+    const { useState } = React;
 
-<h2>Color Text Formatter с курсором</h2>
+    const App = () => {
+      const [inputText, setInputText] = useState('');
+      const [color, setColor] = useState('FFFFFF');
+      const [nextLineMode, setNextLineMode] = useState(false);
+      const [showSteamPrompt, setShowSteamPrompt] = useState(false);
 
-<textarea id="inputText" spellcheck="false" placeholder='Например: [Admin]: Toilet'></textarea>
+      // List of random two-character prefixes (slang/abbreviations)
+      const prefixes = ['bc', 'ok', 'hi', 'yo', 'wt', 'ez', 'gg', 'no'];
 
-<div class="buttons" style="margin-top:5px;">
-  <button id="moveLeft">← Влево</button>
-  <button id="moveRight">→ Вправо</button>
-</div>
+      // List of Steam nickname examples (all 29 characters including .CO)
+      const steamNicknames = [
+        'MUSCLEDADCOCONUTOILWRESTLING.CO',
+        'BEEFYBROGRAPEFRUITKICKBOXING.CO',
+        'TOUGHGUYORANGEJUICEWRESTLING.CO',
+        'HARDCORELEMONZESTFIGHTCLUB.CO',
+        'IRONMANBLUEBERRYPUNCHBATTLE.CO'
+      ];
 
-<div class="buttons" id="colorButtons"></div>
+      // Function to get a random prefix
+      const getRandomPrefix = () => {
+        return prefixes[Math.floor(Math.random() * prefixes.length)];
+      };
 
-<button id="resetColor">Reset Color (FFFFFF)</button>
+      // Function to get a random Steam nickname
+      const getRandomSteamNickname = () => {
+        return steamNicknames[Math.floor(Math.random() * steamNicknames.length)];
+      };
 
-<div class="preview" id="preview"></div>
+      // Handle color button click
+      const handleColorChange = (newColor) => {
+        setColor(newColor);
+      };
 
-<div style="margin-top:10px; font-size: 14px; color: #aaa;">
-  Курсор указывает место, где будет вставлен цветовой код перед словом
-</div>
+      // Handle reset button
+      const handleReset = () => {
+        setColor('FFFFFF');
+      };
 
-<script>
-(() => {
-  const inputText = document.getElementById('inputText');
-  const preview = document.getElementById('preview');
-  const resetColorBtn = document.getElementById('resetColor');
-  const colorButtonsContainer = document.getElementById('colorButtons');
-  const moveLeftBtn = document.getElementById('moveLeft');
-  const moveRightBtn = document.getElementById('moveRight');
+      // Handle Next Line toggle
+      const handleNextLineToggle = () => {
+        if (!nextLineMode) {
+          setShowSteamPrompt(true);
+        }
+        setNextLineMode(!nextLineMode);
+      };
 
-  // Цвета для кнопок (пример)
-  const colors = [
-    {name:'Красный', hex:'FF0000'},
-    {name:'Зелёный', hex:'00FF00'},
-    {name:'Синий', hex:'0000FF'},
-    {name:'Жёлтый', hex:'FFFF00'},
-    {name:'Бирюзовый', hex:'00FFFF'},
-    {name:'Фиолетовый', hex:'FF00FF'},
-    {name:'Оранжевый', hex:'FF7F00'},
-    {name:'Розовый', hex:'FF7F7F'},
-    {name:'Серый', hex:'CCCCCC'}
-  ];
+      // Format the output text
+      const formatOutputText = () => {
+        if (!inputText) return '';
+        let prefix = nextLineMode ? getRandomPrefix() : '';
+        let formattedText = inputText;
+        if (nextLineMode) {
+          formattedText = `${prefix.padEnd(18)}color!${color}${inputText}`;
+        } else {
+          // Find the first word or symbol to apply color after
+          const match = inputText.match(/^\[?\w+\]?:/);
+          if (match) {
+            const index = match.index + match[0].length;
+            formattedText = `${inputText.slice(0, index)}color!${color}${inputText.slice(index)}`;
+          } else {
+            formattedText = `color!${color}${inputText}`;
+          }
+        }
+        return formattedText;
+      };
 
-  let cursorPos = 0; // позиция курсора в строке
+      // Apply color to the preview
+      const renderPreview = () => {
+        const match = inputText.match(/^\[?\w+\]?:/);
+        if (match) {
+          const prefix = match[0];
+          const rest = inputText.slice(prefix.length);
+          return (
+            <span>
+              <span>{prefix}</span>
+              <span style={{ color: `#${color}` }}>{rest}</span>
+            </span>
+          );
+        }
+        return <span style={{ color: `#${color}` }}>{inputText}</span>;
+      };
 
-  // Создаём кнопки цветов
-  colors.forEach(c => {
-    const btn = document.createElement('button');
-    btn.textContent = c.name;
-    btn.style.color = '#' + c.hex;
-    btn.title = `Цвет #${c.hex}`;
-    btn.addEventListener('click', () => applyColor(c.hex));
-    colorButtonsContainer.appendChild(btn);
+      return (
+        <div className="min-h-screen bg-gray-900 text-white flex flex-col items-center p-4">
+          <h1 className="text-3xl font-bold mb-4">Text Color Formatter</h1>
 
-    // Добавим цветной блок рядом
-    const block = document.createElement('span');
-    block.className = 'color-block';
-    block.style.backgroundColor = '#' + c.hex;
-    btn.appendChild(block);
-  });
+          {/* Steam Nickname Prompt */}
+          {showSteamPrompt && (
+            <div className="bg-blue-600 p-4 rounded mb-4">
+              <p>Please set your Steam nickname to one of the following (29 characters including .CO):</p>
+              <ul className="list-disc ml-6">
+                {steamNicknames.map((nick, index) => (
+                  <li key={index}>{nick}</li>
+                ))}
+              </ul>
+              <button
+                className="mt-2 bg-green-500 hover:bg-green-600 text-white px-4 py-2 rounded"
+                onClick={() => setShowSteamPrompt(false)}
+              >
+                Got it!
+              </button>
+            </div>
+          )}
 
-  // Вспомогательная функция для нахождения границ слова начиная с позиции
-  function getWordBounds(text, pos) {
-    if (pos > text.length) pos = text.length;
-    if (pos < 0) pos = 0;
+          {/* Input Field */}
+          <input
+            type="text"
+            value={inputText}
+            onChange={(e) => setInputText(e.target.value)}
+            placeholder="[Admin]: Your text here"
+            className="w-full max-w-md p-2 mb-4 bg-gray-800 border border-gray-600 rounded text-white"
+          />
 
-    // Ищем начало слова
-    let start = pos;
-    while (start > 0 && !/\s/.test(text[start-1])) {
-      start--;
-    }
-    // Ищем конец слова
-    let end = pos;
-    while (end < text.length && !/\s/.test(text[end])) {
-      end++;
-    }
-    return {start, end};
-  }
+          {/* Color Buttons */}
+          <div className="flex flex-wrap gap-2 mb-4">
+            {['FF0000', '00FF00', '0000FF', 'FFFF00', 'FF00FF', '00FFFF', '2D1855', 'CCCCCC'].map((col) => (
+              <button
+                key={col}
+                style={{ backgroundColor: `#${col}` }}
+                className="w-10 h-10 rounded hover:opacity-80"
+                onClick={() => handleColorChange(col)}
+                title={`Color: #${col}`}
+              />
+            ))}
+            <button
+              className="bg-gray-500 hover:bg-gray-600 text-white px-4 py-2 rounded"
+              onClick={handleReset}
+            >
+              Reset
+            </button>
+          </div>
 
-  // Применение цвета — вставляем код цвета перед словом начиная с курсора
-  function applyColor(hex) {
-    let text = inputText.value;
+          {/* Next Line Toggle */}
+          <div className="flex items-center mb-4">
+            <label className="mr-2">Next Line Mode:</label>
+            <input
+              type="checkbox"
+              checked={nextLineMode}
+              onChange={handleNextLineToggle}
+              className="w-6 h-6"
+            />
+          </div>
 
-    // Находим границы слова где стоит курсор
-    const {start, end} = getWordBounds(text, cursorPos);
+          {/* Preview */}
+          <div className="w-full max-w-md bg-gray-800 p-4 rounded">
+            <p className="font-bold">Preview:</p>
+            <p>{renderPreview()}</p>
+          </div>
 
-    if (start === end) {
-      alert('На позиции курсора нет слова для окраски');
-      return;
-    }
+          {/* Formatted Output */}
+          <div className="w-full max-w-md bg-gray-800 p-4 rounded mt-4">
+            <p className="font-bold">Formatted Output:</p>
+            <p className="font-mono">{formatOutputText()}</p>
+          </div>
+        </div>
+      );
+    };
 
-    // Удаляем уже существующий цвет внутри слова
-    const word = text.slice(start, end).replace(/\x07color!\x07[0-9A-Fa-f]{6}/g, '');
-
-    // Формируем цветовой код
-    const coloredWord = `\x07color!\x07${hex}${word}`;
-
-    // Вставляем в текст
-    text = text.slice(0, start) + coloredWord + text.slice(end);
-
-    inputText.value = text;
-
-    // Сдвигаем курсор в конец вставленного цветного слова
-    cursorPos = start + coloredWord.length;
-
-    updatePreview();
-  }
-
-  // Reset цвета — вставляем белый цвет перед словом начиная с курсора
-  function resetColor() {
-    applyColor('FFFFFF');
-  }
-
-  // Обновляем превью с раскраской по твоему формату
-  function updatePreview() {
-    const text = inputText.value;
-    const regex = /\x07color!\x07([0-9A-Fa-f]{6})/g;
-
-    let lastIndex = 0;
-    let currentColor = '#FFFFFF';
-    let result = '';
-    let match;
-
-    while ((match = regex.exec(text)) !== null) {
-      const index = match.index;
-      const segment = text.substring(lastIndex, index);
-      if(segment) result += `<span style="color:${currentColor}">${escapeHtml(segment)}</span>`;
-      currentColor = '#' + match[1];
-      lastIndex = regex.lastIndex;
-    }
-    const tail = text.substring(lastIndex);
-    if(tail) result += `<span style="color:${currentColor}">${escapeHtml(tail)}</span>`;
-
-    // Отрисовываем текст с цветами
-    preview.innerHTML = result;
-
-    // Обновляем отображение курсора в textarea
-    updateCursorIndicator();
-  }
-
-  // Экранируем HTML спецсимволы
-  function escapeHtml(text) {
-    return text.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
-  }
-
-  // Перемещаем курсор влево
-  function moveCursorLeft() {
-    if(cursorPos > 0) cursorPos--;
-    updateCursorIndicator();
-  }
-
-  // Перемещаем курсор вправо
-  function moveCursorRight() {
-    if(cursorPos < inputText.value.length) cursorPos++;
-    updateCursorIndicator();
-  }
-
-  // Показываем курсор внутри textarea
-  function updateCursorIndicator() {
-    // К сожалению, нативный textarea не позволяет отрисовать курсор произвольно,
-    // поэтому будем показывать позицию курсора в отдельном блоке ниже.
-
-    const text = inputText.value;
-
-    // Для визуализации курсора разбиваем текст на 2 части
-    const before = escapeHtml(text.slice(0, cursorPos));
-    const after = escapeHtml(text.slice(cursorPos));
-
-    preview.dataset.cursor = cursorPos;
-
-    // В preview выводим текст с подчеркиванием места курсора (можно заменить на стрелку)
-    preview.innerHTML = `${before}<span style="background:#0af; color:#222;">|</span>${after}`;
-  }
-
-  // При клике в textarea определяем курсор по позиции клика
-  inputText.addEventListener('click', () => {
-    cursorPos = inputText.selectionStart;
-    updateCursorIndicator();
-  });
-
-  // При вводе текста сдвигаем курсор в позицию ввода
-  inputText.addEventListener('input', () => {
-    cursorPos = inputText.selectionStart;
-    updatePreview();
-  });
-
-  moveLeftBtn.addEventListener('click', () => {
-    moveCursorLeft();
-  });
-
-  moveRightBtn.addEventListener('click', () => {
-    moveCursorRight();
-  });
-
-  resetColorBtn.addEventListener('click', resetColor);
-
-  // Цвета кнопки добавлены выше
-
-  // Инициализируем
-  inputText.value = '[Admin]: Toilet';
-  cursorPos = inputText.value.length;
-  updatePreview();
-
-})();
-</script>
-
+    ReactDOM.render(<App />, document.getElementById('root'));
+  </script>
 </body>
 </html>
